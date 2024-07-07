@@ -11,13 +11,13 @@ def games_on_field(df, game_id, field):
     :param field: (int) identifier of the field at stake
     :return: (int tuple) number of games already planned on the field by the two teams
     """
-    if (field<0):
+    if field < 0:
         raise ValueError('field entry has to be a non-negative integer')
     home = df.home[game_id]
     away = df.away[game_id]
-    home_count = df.loc[((df.home==home) | (df.away==home))].loc[df.field==field].shape[0]
-    away_count = df.loc[((df.home==away) | (df.away==away))].loc[df.field==field].shape[0]
-    return(home_count, away_count)
+    home_count = df.loc[((df.home == home) | (df.away == home))].loc[df.field == field].shape[0]
+    away_count = df.loc[((df.home == away) | (df.away == away))].loc[df.field == field].shape[0]
+    return home_count, away_count
 
 
 def randomize_home_away(games):
@@ -29,11 +29,11 @@ def randomize_home_away(games):
     """
     # DataFrame games: with columns (home, away)
     unif = np.random.uniform(size=games.shape[0])
-    newhome = np.where(unif>0.5, games.home, games.away)
-    newaway = np.where(unif>0.5, games.away, games.home)
+    newhome = np.where(unif > 0.5, games.home, games.away)
+    newaway = np.where(unif > 0.5, games.away, games.home)
     games.home = newhome
     games.away = newaway
-    return(games)
+    return games
 
 
 def get_game_list(teams, nfield, nbest):
@@ -44,13 +44,13 @@ def get_game_list(teams, nfield, nbest):
     :param nfield: (int) total number of fields
     :param nbest: (int) number of fields on which each team has to play an equal amount of games
     :return: (pd.DataFrame,bool) list of games and boolean to identify whether the list is complete
+    :encounter how much times you play the same oponent
     """
-    if (nfield<nbest):
+    if nfield < nbest:
         raise ValueError('nfield entry cannot be lower than nbest entry')
     random.shuffle(teams)
     games = pd.DataFrame(it.combinations(teams, 2))         # all combinations of 2 teams
     games = games.sample(frac=1).reset_index(drop=True)     # shuffle rows
-    games.columns = ['home', 'away']
     games = randomize_home_away(games)
     games['field'] = np.nan
     ngames = games.shape[0]
@@ -63,22 +63,22 @@ def get_game_list(teams, nfield, nbest):
             for row in range(ngames):
                 home_count, away_count = games_on_field(games, row, field)
                 # If the teams have not played more than their quota (minus a penalization) on the current field, assign the current field to that game.
-                if ((home_count < quota-pen) & (away_count < quota-pen) & np.isnan(games.field[row])):
+                if (home_count < quota-pen) and (away_count < quota-pen) and np.isnan(games.field[row]):
                     games.at[row, 'field'] = field
 
     ## If there are games unmatched with a field, we allow teams to play more games on a given field, as long as it is not on the best fields
-    for field in range(nbest,nfield):
+    for field in range(nbest, nfield):
         for row in range(ngames):
             home_count, away_count = games_on_field(games, row, field)
-            if ((home_count <= quota+1) & (away_count <= quota+1) & np.isnan(games.field[row])):
+            if (home_count <= quota+1) and (away_count <= quota+1) and np.isnan(games.field[row]):
                 games.at[row, 'field'] = field
 
-    if np.sum(np.isnan(games.field))>0:
-        complete=False
+    if np.sum(np.isnan(games.field)) > 0:
+        complete = False
     else:
-        complete=True
+        complete = True
 
-    return(games,complete)
+    return games, complete
 
 
 def check_list_quality(games, nfield, verbose=False):
@@ -126,13 +126,16 @@ def get_best_match(teams, nfield, nbest, maxiter=20, verbose=False):
         games, okay = get_game_list(teams, nfield, nbest)
         if okay:
             perfect_matches = np.sum(check_list_quality(games, nfield))
-            if perfect_matches==nfield:
-                if verbose: print('Found a perfect match! At iteration',i)
-                return(games,perfect_matches,1)
+            if perfect_matches == nfield:
+                if verbose:
+                    print(f'Found a perfect match! At iteration {i:d}')
+                return games, perfect_matches, 1
             elif best_perfect <= perfect_matches:
                 best_perfect = perfect_matches
                 best_games = games
-    if verbose: print("No perfect match.")
+    if verbose:
+        print("No perfect match.")
     if 'best_games' in locals() or 'best_games' in globals():
-        return(best_games, best_perfect, 1)
-    else: return(games, best_perfect, 0)
+        return best_games, best_perfect, 1
+    else:
+        return games, best_perfect, 0
